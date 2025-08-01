@@ -6,7 +6,10 @@ import jwt from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET || 'sua_chave_secreta';
 
 export async function login(req: Request, res: Response) {
-    const { identificador, senha } = req.body;
+    const identificador = req.body.identificador?.trim().toLowerCase();
+    const senha = req.body.senha;
+
+    console.log(`🔐 Tentativa de login com identificador: ${identificador}`);
 
     if (!identificador || !senha) {
         return res.status(400).json({ erro: 'Identificador e senha são obrigatórios' });
@@ -14,16 +17,19 @@ export async function login(req: Request, res: Response) {
 
     try {
         const [rows] = await db.execute(
-        `SELECT * FROM usuarios WHERE (email = ? OR nome = ?) AND estado = 'ativo' LIMIT 1`,
+        `SELECT * FROM usuarios 
+        WHERE (LOWER(email) = ? OR LOWER(nome) = ?) 
+        AND estado = 'ativo' 
+        LIMIT 1`,
         [identificador, identificador]
         );
-
-        console.log('Resultado da consulta:', rows);
 
         const usuario = Array.isArray(rows) ? rows[0] : null;
 
         if (!usuario) {
-        return res.status(404).json({ erro: 'Usuário não encontrado ou desativado' });
+        return res.status(404).json({
+            erro: 'Usuário não encontrado. Verifique se o nome ou email estão corretos ou se a conta está ativa.',
+        });
         }
 
         const senhaValida = await bcrypt.compare(senha, usuario.senha_hash);
@@ -37,7 +43,6 @@ export async function login(req: Request, res: Response) {
         [usuario.id]
         );
 
-        // Gerar token JWT
         const token = jwt.sign(
         {
             id: usuario.id,
