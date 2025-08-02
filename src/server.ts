@@ -1,23 +1,37 @@
 import express from 'express';
-import cors from 'cors'; // 👈 importa o middleware CORS
+import cors from 'cors';
 import { db } from './db/connection';
 import { env } from './config/env';
-import { router as authRouter } from './routes/auth'; // rota de login
-import { router as perfilRouter } from './routes/perfil'; // rota de perfil
+import { router as authRouter } from './routes/auth';
+import { router as perfilRouter } from './routes/perfil';
+import { router as usuariosRouter } from './routes/usuarios';
 
 const app = express();
 const port = env.PORT || 3001;
 
-// ✅ Middleware CORS para permitir acesso do front-end
+// 🔐 Defina as origens permitidas
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://192.168.1.10:5173', // substitua pelo IP da sua máquina
+];
+
+// ⚙️ Middleware CORS dinâmico
 app.use(cors({
-  origin: 'http://localhost:5173', // permite acesso do seu front-end
-  credentials: true, // se for usar cookies ou headers com auth
+    origin: (origin, callback) => {
+        // permite requests sem origin (Postman, CURL, etc.)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+        }
+        callback(new Error(`CORS: origem ${origin} não permitida.`));
+    },
+    credentials: true,
 }));
 
-// Middleware para interpretar JSON
+// 🚀 Middleware para interpretar JSON
 app.use(express.json());
 
-// Rota de teste de conexão com o banco
+// 🔍 Rota de teste de conexão com o banco
 app.get('/api/test-db', async (req, res) => {
     try {
         const [rows] = await db.query('SELECT 1 + 1 AS resultado');
@@ -28,11 +42,12 @@ app.get('/api/test-db', async (req, res) => {
     }
 });
 
-// Rotas da API
+// 📦 Rotas da API
 app.use('/api', authRouter);
 app.use('/api', perfilRouter);
+app.use('/api/usuarios', usuariosRouter);
 
-// Inicializa o servidor
+// 🏁 Inicializa o servidor
 app.listen(port, () => {
     console.log(`✅ Servidor rodando na porta ${port}`);
 });
